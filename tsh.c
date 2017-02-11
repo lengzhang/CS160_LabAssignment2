@@ -252,7 +252,7 @@ int builtin_cmd(char **argv)
     else if (!strcmp(argv[0], "jobs"))
     {
         listjobs(jobs);
-        return 1
+        return 1;
     }
     return 0;     /* not a builtin command */
 }
@@ -270,6 +270,7 @@ void do_bgfg(char **argv)
  */
 void waitfg(pid_t pid)
 {
+    while(fgpid(jobs) == pid) sleep(1);
     return;
 }
 
