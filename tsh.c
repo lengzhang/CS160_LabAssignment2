@@ -166,11 +166,48 @@ int main(int argc, char **argv)
 void eval(char *cmdline) 
 {
     char * argv[MAXARGS];
-    if (parseline(cmdline, argv) != 1)
+    int bg;
+    pid_t pid;
+    sigset_t parent_set;
+
+    //  ignore blank line
+    if ((bg = parseline(cmdline, argv)) != 1)
     {
         if (!builtin_cmd(argv))
         {
-            /* code */
+            sigemptyset(&parent_set);
+            if (sigaddset(&parent_set, SIGCHLD))
+            {
+                printf("sigaddset is not successfully added for SIGSEGV\n");
+            }
+            sigprocmask(SIG_BLOCK, &parent_set, NULL);
+
+            //  Child Process
+            if ((pid = fork()) == 0)
+            {
+                setpgid(0, 0);
+                sigprocmask(SIG_UNBLOCK, &parent_set, NULL);
+                if (execve(argv[0], argv, environ) < 0)
+                {
+                    printf("%s: Command not found.\n", argv[0]);
+                }
+            }
+            //  Parent Process
+            else
+            {
+                addjob(jobs, pid, bg+1, cmdline);
+            }
+
+            //  SIGSEGV signal is unblocked
+            sigprocmask(SIG_UNBLOCK, &parent_set, NULL);
+            if (!bg)
+            {
+                waitfg(pid);
+            }
+            else
+            {
+                printf("[%d] (%d) %s\n", pid2jid(pid), pid, cmdline);
+            }
         }
     }
     return;
@@ -243,6 +280,7 @@ int builtin_cmd(char **argv)
     {
         printf("Quit\n");
         exit(0);
+        return 1;
     }
     else if (!strcmp(argv[0], "fg") || !strcmp(argv[0], "bg"))
     {
@@ -262,6 +300,59 @@ int builtin_cmd(char **argv)
  */
 void do_bgfg(char **argv) 
 {
+    if (argv[1] == NULL || argv[1][0] > '9')
+    {
+        if (!strcmp(argv[0], "fg"))
+        {
+            printf("fg command requires PID or %%jobid argument\n");
+            return;
+        }
+        else if (!strcmp(argv[0], "bg"))
+        {
+            printf("bg command requires PID or %%jobid argument\n");
+            return;
+        }
+    }
+    else
+    {
+        struct job_t *temp_job;
+        if (argv[1][0] == '%')
+        {
+            int jid = argv[1][1] - '0';
+            temp_job = getjobjid(jobs, jid);
+            if (temp_job == NULL)
+            {
+                printf("%%%d: No such job\n", jid);
+                return;
+            }
+        }
+        else
+        {
+            int pid = atoi(argv[1]);
+            temp_job = getjobpid(jobs, pid);
+            if (temp_job == NULL)
+            {
+                printf("(%d): No such process\n", pid);
+                return;
+            }
+        }
+
+        kill(-temp_job->pid, SIGCONT);
+
+        if (!strcmp(argv[0], "fg"))
+        {
+            temp_job->state = FG;
+        }
+        else if (!strcmp(argv[0], "bg"))
+        {
+            printf("[%d] (%d) %s\n", temp_job->jid, temp_job->pid, temp_job->cmdline);
+            temp_job->state = BG;
+        }
+        else
+        {
+            printf("opps, there some error with bg and fg.\n");
+        }
+    }
     return;
 }
 
