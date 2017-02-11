@@ -313,6 +313,14 @@ void sigint_handler(int sig)
  */
 void sigtstp_handler(int sig) 
 {
+    pid_t fg_pid = fgpid(jobs);
+    if (fg_pid)
+    {
+        struct job_t *job = getjobpid(jobs, fg_pid);
+        job->state = ST;
+        kill(-fg_pid, SIGTSTP);
+        printf("Job [%d] (%d) is stopped by signal %d\n", pid2jid(fg_pid), fg_pid, sig);
+    }
     return;
 }
 
