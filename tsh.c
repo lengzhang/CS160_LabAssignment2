@@ -287,6 +287,27 @@ void waitfg(pid_t pid)
  */
 void sigchld_handler(int sig) 
 {
+    pid_t pid;
+    int c_status;
+    struct job_t *temp_job;
+
+    //  Reap child and delete job
+    //  Check child is being stopped normally or singal
+    while ((pid = waitpid(-1, &c_status, WNOHANG)) > 0)
+    {
+        //  WIFEXITED(status)   -   normal termination
+        //  WIFSIGNALED(status) -   abnormal termination
+        //  WIFSTOPPED(status)  -   child stopped
+        if (WIFEXITED(c_status) || WIFSIGNALED(c_status))
+        {
+            deletejob(jobs, pid);
+        }
+        else if (WIFSTOPPED(c_status))
+        {
+            temp_job = getjobpid(jobs, pid);
+            temp_job->state = ST;
+        }
+    }
     return;
 }
 
