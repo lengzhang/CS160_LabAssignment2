@@ -1,7 +1,9 @@
 /* 
  * tsh - A tiny shell program with job control
  * 
- * <Put your name and ID here>
+ * UCR 2017 Winter CS 160 Lab Assignment 2
+ * Name:    Leng Zhang
+ * SID:     861209382
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -187,10 +189,14 @@ void eval(char *cmdline)
             {
                 setpgid(0, 0);
                 sigprocmask(SIG_UNBLOCK, &parent_set, NULL);
-                if (execve(argv[0], argv, environ) < 0)
-                {
-                    printf("%s: Command not found.\n", argv[0]);
-                }
+
+                //  Execute command
+                //  Execute succe, execve does not return
+                execve(argv[0], argv, environ);
+                //  Execute fail, execve return -1
+                printf("%s: Command not found.\n", argv[0]);
+                exit(0);
+
             }
             //  Parent Process
             else
